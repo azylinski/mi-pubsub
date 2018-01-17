@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package events;
+import "google/protobuf/timestamp.proto";
+import "events/user.proto";
+
+message Order {
+  google.protobuf.Timestamp created_at = 1;
+
+  string id = 2;
+
+  // OrderItems ...
+
+  User customer = 100;
+}
