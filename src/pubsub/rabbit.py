@@ -1,13 +1,14 @@
+from logging import getLogger
 from os import getenv
-from socket import gethostname
-import pika
+from google.protobuf.empty_pb2 import Empty
+from pika import BlockingConnection, URLParameters, BasicProperties
 
-# TODO: resolve before extracting to package
-from proto.events import *
-
-CONTAINER_ID = gethostname()
+# TODO: find unique service identifier,
+# TODO: without need to pass that down via env var
+APP_NAME = getenv('APP_NAME')
 PB_CONTENT_TYPE = 'application/vnd.google.protobuf'
 
+_LOGGER = getLogger(__name__)
 
 class PubSub(object):
     @staticmethod
@@ -21,61 +22,63 @@ class PubSub(object):
         if not ampq_url:
             ampq_url = self._build_ampq_url()
 
-        parameters = pika.connection.URLParameters(ampq_url)
-        self.channel = pika.BlockingConnection(parameters).channel()
+        parameters = URLParameters(ampq_url)
+        self.channel = BlockingConnection(parameters).channel()
         self.channel.confirm_delivery()
 
         self.process_functions = {}
 
-    def publish(self, event_name, event):
+    def publish(self, event_name, event=None):
+        if event is None:
+            event = Empty()
+
         # from google.protobuf.message import Message
         # assert parent class is Message
         exchange = f'{event_name}.{event.__class__.__name__}'
 
-        channel.exchange_declare(exchange_type='fanout', exchange=event_name)
+        self.channel.exchange_declare(exchange_type='fanout', exchange=event_name)
 
-        properties = pika.BasicProperties(
-            app_id=CONTAINER_ID, content_type=PB_CONTENT_TYPE)
-        channel.basic_publish(
+        properties = BasicProperties(app_id=APP_NAME, content_type=PB_CONTENT_TYPE)
+        self.channel.basic_publish(
             exchange=event_name,
+            routing_key='ALL', # routing key is ignored for 'fanout' exchange
             body=event.SerializeToString(),
             properties=properties)
 
     def on_message_callback(self, channel, method_frame, header_frame, body):
-        print("on_message_callback", channel, method_frame, header_frame, body)
+        # print("on_message_callback", channel, method_frame, header_frame, body)
         # TODO: if content_type !== PB_CONTENT_TYPE
 
         # TODO: maybe use google.protobuf.reflection ?
         # https://developers.google.com/protocol-buffers/docs/reference/python/google.protobuf.reflection-module#MakeClass
-        event_name, event_cls = channel.split('.')
 
-        # imported by: `from proto.events import *`
-        Event = type(event_cls, (), {})
-        event = Event()
-
+        event_name = method_frame.exchange
+        func, EventClass = self.process_functions[event_name]
+        
+        event = EventClass()
         event.ParseFromString(body)
 
-        self.process_functions[channel](event)
+        func(event)
 
-    def listen(self, channel):
+        self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+
+    def listen(self, event_name, EventClass):
         """A decorator that is used to register events listener function for a
         given channel.
         """
 
         def decorator(func):
-            event_name, _ = channel.split('.')
-            queue_name = f"{CONTAINER_ID}.{event_name}"
+            queue_name = f"{APP_NAME}.{event_name}"
             self.channel.queue_declare(
                 queue=queue_name,
                 durable=True,
                 exclusive=False,
                 auto_delete=False)
 
-            # TODO: except pika.exceptions.ChannelClosed
-            # TODO: raise PermamentException - event has not been published (yet?)
+            self.channel.exchange_declare(exchange_type='fanout', exchange=event_name)
             self.channel.queue_bind(queue=queue_name, exchange=event_name)
 
-            self.process_functions[event_name] = func
+            self.process_functions[event_name] = (func, EventClass)
             self.channel.basic_consume(self.on_message_callback, queue=queue_name)
 
             return func
@@ -83,5 +86,4 @@ class PubSub(object):
         return decorator
 
     def run(self):
-        print('PubSub.run', self)
         self.channel.start_consuming()

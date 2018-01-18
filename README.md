@@ -4,69 +4,33 @@ Asynchronius, pubish/subscriber communication in between (micro) services.
 Protobuf powered RabbitMQ queues.
 RabbitMQ Publish/Subscribe pattern implementation for SOA.
 
-## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+## Getting Started
 
 ### Prerequisites
 
-What things you need to install the software and how to install them
+* docker-compose, see [install guide](https://docs.docker.com/compose/install/)
 
-* docker & docker-compose
-* protobuf
-* RabbitMQ
+### Running demo
 
 ```
-Give examples
+# to start rabbitmq and demo containers
+docker-compose up -d
+
+# start mailer worker (consumer)
+docker exec -it mipubsub_mailer_1 python main.py
+
+# publish sample events
+docker exec -it mipubsub_mailer_1 python sample_producer.py
 ```
 
-### Installing
-
-A step by step series of examples that tell you have to get a development env running
-
-Say what the step will be
-
-```
-pip install mi-pubsub
-```
-
-And repeat
-
-```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo
-
-## Running the tests
-
-Explain how to run the automated tests for this system
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## Deployment
-
-Add additional notes about how to deploy this on a live system
 
 ## Built With
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+* [Python](https://docs.python.org/3/) - Main programming language
+* [RabbitMQ](https://www.rabbitmq.com/) - message broker for pubsub
+* [Protocol Buffers](https://developers.google.com/protocol-buffers/) - Events data structure (language-neutral)
+
 
 ## Contributing
 
@@ -91,4 +55,3 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * Hat tip to anyone who's code was used
 * Inspiration
 * etc
-

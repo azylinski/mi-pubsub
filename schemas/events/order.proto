@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package events;
 import "google/protobuf/timestamp.proto";
-import "events/user.proto";
+import "user.proto";
 
 message Order {
   google.protobuf.Timestamp created_at = 1;
